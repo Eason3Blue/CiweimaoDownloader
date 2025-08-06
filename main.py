@@ -3,6 +3,8 @@ import base64
 import requests
 import uuid
 import re
+
+from sqlalchemy import true
 import decrypt
 from pathlib import Path
 from dataclasses import dataclass,field
@@ -138,53 +140,50 @@ def getName(book_id: int) -> Optional[BookInfo]:
         print(f"[WARN] 自动获取书籍信息失败: {e}")
         return None
 
-def clean_html_with_images(raw_html: str, img_dir="images", split_by_indent=True):
-    os.makedirs(img_dir, exist_ok=True)
+def clean_html_with_images(raw_html: str, split_by_indent=True):
+    img_dir = Path("images")
     soup = BeautifulSoup(raw_html, 'html.parser')
+
     for span in soup.find_all('span'):
         span.decompose()
     image_items = []
     for img_tag in soup.find_all('img'):
         src = img_tag.get('src')
         if not src:
+            img_tag.decompose()
             continue
         try:
             parsed = urlparse(src)
             ext = os.path.splitext(parsed.path)[-1] or '.jpg'
             filename = f"{uuid.uuid4()}{ext}"
-            epub_path = f"{img_dir}/{filename}"
+            epub_path = img_dir / filename
             if parsed.scheme in ('http', 'https'):
                 resp = requests.get(src, timeout=10)
                 if resp.status_code != 200:
-                    continue
+                    raise ValueError(f"[ERR]HTTP {resp.status_code}")
                 image_data = resp.content
             else:
                 with open(src, 'rb') as f:
                     image_data = f.read()
-            mime_type, _ = mimetypes.guess_type(epub_path)
-            if not mime_type:
-                mime_type = 'image/jpeg'
-            img_item = epub.EpubItem(
+            mime_type, _ = mimetypes.guess_type(str(epub_path))
+            mime_type = mime_type or 'image/jpeg'
+            image_items.append(epub.EpubItem(
                 uid=filename,
-                file_name=epub_path,
+                file_name=epub_path.as_posix(),
                 media_type=mime_type,
                 content=image_data
-            )
-            image_items.append(img_item)
-            img_tag['src'] = epub_path  # 保留图片位置
+            ))
+            img_tag['src'] = epub_path.as_posix()
         except Exception as e:
             print(f"[WARN] 图像处理失败: {src} - {e}")
             img_tag.decompose()
-            continue
     text = soup.get_text()
     if split_by_indent:
         paragraphs = re.split(r'(?=　　)', text)
     else:
         paragraphs = text.split('\n\n')
-    for tag in soup.find_all(['p', 'br']):
-        tag.decompose()
     text_block = ''.join(f"<p>{para.strip()}</p>" for para in paragraphs if para.strip())
-    final_html = f"<div>{text_block}</div>{soup}"
+    final_html = f"<div>{text_block}</div>{str(soup)}"
     return final_html, image_items
 def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, output_path: str):
     epub_book = epub.EpubBook()
@@ -224,10 +223,7 @@ def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, out
 
 if __name__ == "__main__":
     rename_files_in_folder("key")
-    print("[INFO]本程序基于Zn90107UlKa/CiweimaoDownloader@github.com")
-    print("[INFO]如果您是通过被售卖的渠道获得的本软件，请您立刻申请退款。")
-    str = "[INFO]仅供个人学习与技术研究\n[INFO]禁止任何形式的商业用途\n[INFO]所有内容版权归原作者及刺猬猫平台所有\n[INFO]请在 24 小时内学习后立即删除文件\n[INFO]作者不承担因不当使用导致的损失及法律后果"
-    print(str)
+    print("[INFO]本程序基于Zn90107UlKa/CiweimaoDownloader@github.com\n[INFO]如果您是通过被售卖的渠道获得的本软件，请您立刻申请退款。\n[INFO]仅供个人学习与技术研究\n[INFO]禁止任何形式的商业用途\n[INFO]所有内容版权归原作者及刺猬猫平台所有\n[INFO]请在 24 小时内学习后立即删除文件\n[INFO]作者不承担因不当使用导致的损失及法律后果")
     bookUrl = input("[OPT]输入你想下载的书籍Url：")
     bookId = int(bookUrl.split("/")[-1])
     bookPath = Path(f"{bookId}")
@@ -235,7 +231,7 @@ if __name__ == "__main__":
     chapters = getContent(bookId)
     book_info = getName(bookId)
     if not book_info:
-        raise Exception("无法获取书籍信息")
+        raise Exception("[ERR]无法获取书籍信息")
     count = 0
     FullChapters = []
     Path(f"decrypted/{bookId}").mkdir(parents=True,exist_ok=True)
@@ -252,19 +248,26 @@ if __name__ == "__main__":
             FullChapters.append(Chapters(chapterId,chapterTitle,txt))
             print(f"[INFO]{decryptedTxtPath} 已解码")
             continue
-        with open(seedPath) as f:
-            seed = f.read()
-        with open(txtPath) as f:
-            encryptedTxt = f.read()
         try:
-            txt = decrypt.decrypt_aes_base64(encryptedTxt, seed)
+            with open(seedPath) as f:
+                seed = f.read()
+            with open(txtPath) as f:
+                encryptedTxt = f.read()
+            try:
+                txt = decrypt.decrypt_aes_base64(encryptedTxt, seed)
+                with open(decryptedTxtPath,"w") as f:
+                    f.write(txt)
+                print(f"[INFO]{decryptedTxtPath} 已解码")
+                FullChapters.append(Chapters(chapterId,chapterTitle,txt))
+            except:
+                print("[ERROR]解密时发生错误")
+                continue
+        except:
+            print(f"[WARN]{chapterTitle}未购买")
+            txt = "本章未购买"
             with open(decryptedTxtPath,"w") as f:
                 f.write(txt)
-            print(f"[INFO]{decryptedTxtPath} 已解码")
             FullChapters.append(Chapters(chapterId,chapterTitle,txt))
-        except:
-            print("[ERROR]解密时发生错误")
-            continue
     print("[INFO]正在打包Epub...")
     generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"output.epub")
     input("[OPT]任意键退出程序...")
