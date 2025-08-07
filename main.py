@@ -1,5 +1,6 @@
 import os
 import base64
+from wsgiref import headers
 import requests
 import mimetypes
 import uuid
@@ -9,6 +10,8 @@ import decrypt
 
 from pathlib import Path
 from dataclasses import dataclass,field
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
@@ -33,6 +36,30 @@ defaultHeaders = {
     "Accept-Encoding": "gzip, deflate, br",
     "Accept-Language": "zh-CN,zh;q=0.9"
 }
+
+def get_with_retry(url, max_retries=3, backoff_factor=0.5, timeout=10): #有自动重试的get方法
+    session = requests.Session()
+    session.headers = defaultHeaders.copy()
+
+    retry_strategy = Retry(
+        total=max_retries,               # 总重试次数
+        status_forcelist=[403, 404, 429, 500, 502, 503, 504],  # 针对哪些状态码重试
+        allowed_methods=["GET"],         # 哪些 HTTP 方法允许重试（注意大小写）
+        backoff_factor=backoff_factor    # 重试间的间隔因子（指数退避）
+    )
+
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    try:
+        response = session.get(url, timeout=timeout)
+        response.raise_for_status()  # 抛出 HTTP 错误（如 404, 500）
+        return response
+    except requests.RequestException as e:
+        print(f"[ERROR] 请求失败: {e}")
+        return None
+
 
 def sanitize_filename(name: str) -> str: #函数，标准化章节名，避免章节名不符合Windows命名规范导致报错
     return re.sub(r'[\\/:*?"<>|]', '', name)
@@ -121,7 +148,7 @@ def getName(book_id: int) -> Optional[BookInfo]: #方法，获取书籍信息
     headers = defaultHeaders.copy()
 
     try:
-        resp = requests.get(url, headers=headers, timeout=10)
+        resp = get_with_retry(url)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
@@ -137,7 +164,7 @@ def getName(book_id: int) -> Optional[BookInfo]: #方法，获取书籍信息
         cover_url = cover_tag["content"]
 
         try:
-            cover_resp = requests.get(cover_url, timeout=10)
+            cover_resp = get_with_retry(cover_url)
             cover_resp.raise_for_status()
             cover = cover_resp.content
         except Exception as e:
@@ -169,7 +196,7 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
             filename = f"{uuid.uuid4()}{ext}"
             epub_path = img_dir / filename
             if parsed.scheme in ('http', 'https'):
-                resp = requests.get(src, timeout=10)
+                resp = get_with_retry(src)
                 if resp.status_code != 200:
                     raise ValueError(f"[ERR] HTTP {resp.status_code}")
                 image_data = resp.content
@@ -249,6 +276,9 @@ if __name__ == "__main__":
     remove_newlines_in_files(bookPath)
     
     chapters = getContents(bookId)
+    if not chapters:
+        input("[OPT][ERR] 无法获取目录，按回车退出程序，请稍后再试")
+        exit
     book_info = getName(bookId)
     if not book_info:
         raise Exception("[ERR] 无法获取书籍信息")
