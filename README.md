@@ -11,7 +11,7 @@
 * 下载并安装支持 Root 权限的安卓模拟器（如 MuMu Player）
 * 下载刺猬猫 App **（推荐版本 v2.9.303）**
 * 下载支持 Root 访问的文件管理器（如 MT 文件管理器）
-* 下载本程序（CiweimaoDownloader）[下载页](https://github.com/Zn90107UlKa/CiweimaoDownloader/releases/tag/v2.9.303)
+* 下载本程序（CiweimaoDownloader）[下载页](https://github.com/Eason3Blue/CiweimaoDownloader/releases/latest)
 
 ### 2. 安装应用
 1. 启动模拟器
