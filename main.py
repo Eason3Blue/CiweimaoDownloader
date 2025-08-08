@@ -330,5 +330,5 @@ if __name__ == "__main__":
         f.write(allContent)
     print(f"txt文件已生成在：{sanitize_filename(book_info.name)}")
     print("[INFO] 正在打包Epub...")
-    generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"{sanitize_filename(book_info.name)}")
+    generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"{sanitize_filename(book_info.name)}.epub")
     input("[OPT] 任意键退出程序...")
