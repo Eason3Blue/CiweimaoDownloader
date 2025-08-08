@@ -1,12 +1,10 @@
 import os
 import base64
-from wsgiref import headers
 import requests
-import mimetypes
 import uuid
 import re
-
-from sqlalchemy import true
+import magic
+import mimetypes
 
 import decrypt
 
@@ -194,21 +192,31 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
             continue
         try:
             parsed = urlparse(src)
-            ext = os.path.splitext(parsed.path)[-1] or '.jpg'
-            filename = f"{uuid.uuid4()}{ext}"
-            epub_path = Path("images") / filename
             if parsed.scheme in ('http', 'https'):
                 resp = get_with_retry(src)
                 if resp.status_code != 200:
                     raise ValueError(f"[ERR] HTTP {resp.status_code}")
                 image_data = resp.content
+                mime = magic.from_buffer(image_data, mime=True)
+                ext = mimetypes.guess_extension(mime)
+                if not ext:
+                    fallback = {
+                        "image/webp": ".webp",
+                        "image/x-icon": ".ico",
+                        "image/heic": ".heic",
+                        "image/heif": ".heif",
+                    }
+                    ext = fallback.get(mime, "")
+                filename = f"{uuid.uuid4()}{ext}"
+                epub_path = Path("images") / filename
             else:
-                with open(src, 'rb') as f:
-                    image_data = f.read()
+                print("[WARN] 某一章节的图片下载失败")
+                return
+            
             image_items.append(epub.EpubItem(
                 uid=f"img_{(filename.replace('.','_')).replace('-','_')}", #为符合xml命名规范
                 file_name=epub_path.as_posix(),
-                media_type="image/jpeg",
+                media_type=mime,
                 content=image_data
             ))
             img_tag['src'] = epub_path.as_posix()
@@ -232,6 +240,7 @@ def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, out
         epub_book.set_cover("cover.jpg", bookCover)
     else:
         print(f"[WARN] 封面图片为空或格式不正确")
+    epub_book.set_language("zh")
         
     spine = ['nav']
     epub_chapters = []
@@ -328,7 +337,7 @@ if __name__ == "__main__":
     
     with open(Path(f"{sanitize_filename(book_info.name)}.txt"),"w",encoding="utf-8") as f:
         f.write(allContent)
-    print(f"txt文件已生成在：{sanitize_filename(book_info.name)}")
+    print(f"[INFO] txt文件已生成在：{sanitize_filename(book_info.name)}")
     print("[INFO] 正在打包Epub...")
     generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"{sanitize_filename(book_info.name)}.epub")
     input("[OPT] 任意键退出程序...")
