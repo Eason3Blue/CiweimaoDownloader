@@ -287,6 +287,7 @@ if __name__ == "__main__":
     
     count = 0
     FullChapters = []
+    allContent = ""
     Path(f"decrypted/{bookId}").mkdir(parents=True,exist_ok=True)
     for chapter in tqdm(chapters,desc="[PROGRESSING] 解码中"):
         chapterId = chapter.id
@@ -299,6 +300,7 @@ if __name__ == "__main__":
         if decryptedTxtPath.exists() == True:
             with open(decryptedTxtPath) as f:
                 txt = f.read()
+            allContent += f"{chapterTitle}\n{txt}" #为生成txt做准备
             FullChapters.append(Chapters(chapterId,chapterTitle,txt))
             continue
         
@@ -312,6 +314,7 @@ if __name__ == "__main__":
                 txt = decrypt.decrypt_aes_base64(encryptedTxt, seed)
                 with open(decryptedTxtPath,"w") as f:
                     f.write(txt)
+                allContent += f"{chapterTitle}\n{txt}"
                 FullChapters.append(Chapters(chapterId,chapterTitle,txt))
             except:
                 print(f"[ERROR] 解密 {str(txtPath)} 时发生错误")
@@ -322,7 +325,10 @@ if __name__ == "__main__":
             with open(decryptedTxtPath,"w",encoding='utf-8') as f:
                 f.write(txt)
             FullChapters.append(Chapters(chapterId,chapterTitle,txt))
-            
+    
+    with open(Path(f"{sanitize_filename(book_info.name)}.txt"),"w",encoding="utf-8") as f:
+        f.write(allContent)
+    print(f"txt文件已生成在：{sanitize_filename(book_info.name)}")
     print("[INFO] 正在打包Epub...")
-    generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"output.epub")
+    generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"{sanitize_filename(book_info.name)}")
     input("[OPT] 任意键退出程序...")
