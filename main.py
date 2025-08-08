@@ -6,6 +6,8 @@ import mimetypes
 import uuid
 import re
 
+from sqlalchemy import true
+
 import decrypt
 
 from pathlib import Path
@@ -178,8 +180,8 @@ def getName(book_id: int) -> Optional[BookInfo]: #方法，获取书籍信息
         return None
 
 def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将txt中的图片链接下载并包含进入epub中
-    img_dir = Path("images")
-    soup = BeautifulSoup(raw_html, 'html.parser')
+    recommandDeleted = re.sub(r'<Book\s+{[^{}]+}\s*>\s*([\s\S]{0,300})?', '', raw_html) #删去作者推书的超链接，epub不支持这个
+    soup = BeautifulSoup(recommandDeleted, 'html.parser')
 
     for span in soup.find_all('span'):
         span.decompose()
@@ -194,7 +196,7 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
             parsed = urlparse(src)
             ext = os.path.splitext(parsed.path)[-1] or '.jpg'
             filename = f"{uuid.uuid4()}{ext}"
-            epub_path = img_dir / filename
+            epub_path = Path("images") / filename
             if parsed.scheme in ('http', 'https'):
                 resp = get_with_retry(src)
                 if resp.status_code != 200:
@@ -203,25 +205,23 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
             else:
                 with open(src, 'rb') as f:
                     image_data = f.read()
-            mime_type, _ = mimetypes.guess_type(str(epub_path))
-            mime_type = mime_type or 'image/jpeg'
             image_items.append(epub.EpubItem(
-                uid=filename,
+                uid=f"img_{(filename.replace('.','_')).replace('-','_')}", #为符合xml命名规范
                 file_name=epub_path.as_posix(),
-                media_type=mime_type,
+                media_type="image/jpeg",
                 content=image_data
             ))
             img_tag['src'] = epub_path.as_posix()
         except Exception as e:
             print(f"[WARN] 图像处理失败: {src} - {e}")
             img_tag.decompose()
-    text = soup.get_text()
+    text = str(soup)
     if split_by_indent:
         paragraphs = re.split(r'(?=　　)', text)
     else:
         paragraphs = text.split('\n\n')
     text_block = ''.join(f"<p>{para.strip()}</p>" for para in paragraphs if para.strip())
-    final_html = f"<div>{text_block}</div>"
+    final_html = f"{text_block}"
     return final_html, image_items
 
 def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, output_path: str): #方法，生成epub
@@ -317,7 +317,7 @@ if __name__ == "__main__":
                 print(f"[ERROR] 解密 {str(txtPath)} 时发生错误")
                 continue
         except:
-            print(f"[WARN] {chapterTitle}未购买")
+            print(f"[WARN] {chapterTitle} 未购买")
             txt = "本章未购买"
             with open(decryptedTxtPath,"w",encoding='utf-8') as f:
                 f.write(txt)
