@@ -36,14 +36,14 @@ class ColorPrint:
     @staticmethod
     def err(msg): print(Back.RED + Fore.WHITE + Style.BRIGHT + f"{msg}")
     @staticmethod
-    def warn(msg): print(Back.YELLOW + Fore.BLACK + Style.BRIGHT + f"{msg}")
+    def warn(msg): print(Back.LIGHTYELLOW_EX + Fore.BLACK + Style.BRIGHT + f"{msg}")
     @staticmethod
     def info(msg): print(f"{msg}")
     @staticmethod
-    def opt(msg): return input(Back.GREEN + Fore.BLACK + Style.BRIGHT + f"{msg}")
+    def opt(msg): return input(Back.LIGHTWHITE_EX + Fore.BLACK + f"{msg}")
     @staticmethod
     def processing_label(msg):
-        return Back.BLUE + Fore.WHITE + f"{msg}" + Style.RESET_ALL
+        return Back.LIGHTBLUE_EX + Style.BRIGHT + Fore.WHITE + f"{msg}" + Style.RESET_ALL
 
 defaultHeaders = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.6788.76 Safari/537.36",
@@ -225,8 +225,7 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
                 filename = f"{uuid.uuid4()}{ext}"
                 epub_path = Path("images") / filename
             else:
-                ColorPrint.warn(f"[WARN] 某一章节的图片下载失败")
-                return
+                continue
             
             image_items.append(epub.EpubItem(
                 uid=f"img_{(filename.replace('.','_')).replace('-','_')}", #为符合xml命名规范
@@ -291,8 +290,8 @@ def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, out
 if __name__ == "__main__":
     rename_files_in_folder("key")
     
-    ColorPrint.info(f"[INFO] 本程序基于Zn90107UlKa/CiweimaoDownloader@github.com\n[INFO] 如果您是通过被售卖的渠道获得的本软件，请您立刻申请退款。\n[INFO] 仅供个人学习与技术研究\n[INFO]禁止任何形式的商业用途\n[INFO] 所有内容版权归原作者及刺猬猫平台所有\n[INFO] 请在 24 小时内学习后立即删除文件\n[INFO] 作者不承担因不当使用导致的损失及法律后果")
-    bookUrl = ColorPrint.opt(f"[INFO] 输入你想下载的书籍Url：")
+    ColorPrint.info(f"[INFO] 本程序基于Zn90107UlKa/CiweimaoDownloader@github.com\n[INFO] 如果您是通过被售卖的渠道获得的本软件，请您立刻申请退款。\n[INFO] 仅供个人学习与技术研究\n[INFO] 禁止任何形式的商业用途\n[INFO] 所有内容版权归原作者及刺猬猫平台所有\n[INFO] 请在 24 小时内学习后立即删除文件\n[INFO] 作者不承担因不当使用导致的损失及法律后果")
+    bookUrl = ColorPrint.opt(f"[OPT] 输入你想下载的书籍Url：")
     
     bookId = int(bookUrl.split("/")[-1])
     bookPath = Path(f"{bookId}")
@@ -301,7 +300,7 @@ if __name__ == "__main__":
     
     chapters = getContents(bookId)
     if not chapters:
-        ColorPrint.opt(f"[INFO][ERR] 无法获取目录，按回车退出程序，请稍后再试")
+        ColorPrint.opt(f"[OPT][ERR] 无法获取目录，按回车退出程序，请稍后再试")
         exit
     book_info = getName(bookId)
     if not book_info:
@@ -327,30 +326,30 @@ if __name__ == "__main__":
             allContent += f"{chapterTitle}\n{txt}" #为生成txt做准备
             FullChapters.append(Chapters(chapterId,chapterTitle,txt))
             continue
-        
-        try:
-            with open(seedPath) as f:
-                seed = f.read()
-            with open(txtPath) as f:
-                encryptedTxt = f.read()
-                
+        else:
             try:
-                txt = decrypt.decrypt_aes_base64(encryptedTxt, seed)
-                with open(decryptedTxtPath,"w") as f:
-                    f.write(txt)
-                allContent += f"{chapterTitle}\n{txt}"
-                FullChapters.append(Chapters(chapterId,chapterTitle,txt))
+                with open(seedPath) as f:
+                    seed = f.read()
+                with open(txtPath) as f:
+                    encryptedTxt = f.read()
+                    
+                try:
+                    txt = decrypt.decrypt_aes_base64(encryptedTxt, seed)
+                    with open(decryptedTxtPath,"w") as f:
+                        f.write(txt)
+                    allContent += f"{chapterTitle}\n{txt}"
+                    FullChapters.append(Chapters(chapterId,chapterTitle,txt))
+                except Exception as e:
+                    ColorPrint.err(f"[ERR] 解密 {str(txtPath)} 时发生错误")
+                    continue
             except:
-                ColorPrint.err(f"[ERR] 解密 {str(txtPath)} 时发生错误")
-                continue
-        except:
-            ColorPrint.warn(f"[WARN] {chapterTitle} 未购买")
-            txt = "本章未购买"
-            FullChapters.append(Chapters(chapterId,chapterTitle,txt))
+                ColorPrint.warn(f"[WARN] {chapterTitle} 未购买")
+                txt = "本章未购买"
+                FullChapters.append(Chapters(chapterId,chapterTitle,txt))
     
     with open(Path(f"{sanitize_filename(book_info.name)}.txt"),"w",encoding="utf-8") as f:
         f.write(allContent)
     ColorPrint.info(f"[INFO] txt文件已生成在：{sanitize_filename(book_info.name)}")
     ColorPrint.info(f"[INFO] 正在打包Epub...")
     generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"{sanitize_filename(book_info.name)}.epub")
-    ColorPrint.opt(f"[INFO] 任意键退出程序...")
+    ColorPrint.opt(f"[OPT] 任意键退出程序...")
