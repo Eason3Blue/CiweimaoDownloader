@@ -221,7 +221,7 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
     else:
         paragraphs = text.split('\n\n')
     text_block = ''.join(f"<p>{para.strip()}</p>" for para in paragraphs if para.strip())
-    final_html = f"<div>{text_block}</div>{str(soup)}"
+    final_html = f"<div>{text_block}</div>"
     return final_html, image_items
 
 def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, output_path: str): #方法，生成epub
