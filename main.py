@@ -8,7 +8,7 @@ import mimetypes
 
 import decrypt
 
-from colorama import init, Fore, Style
+from colorama import init, Fore, Style, Back
 from pathlib import Path
 from dataclasses import dataclass,field
 from requests.adapters import HTTPAdapter
@@ -30,7 +30,21 @@ class BookInfo:
     name: str
     author: str
     cover: Optional[bytes]
-    
+
+init(autoreset=True)
+class ColorPrint:
+    @staticmethod
+    def err(msg): print(Back.RED + Fore.WHITE + Style.BRIGHT + f"{msg}")
+    @staticmethod
+    def warn(msg): print(Back.YELLOW + Fore.BLACK + Style.BRIGHT + f"{msg}")
+    @staticmethod
+    def info(msg): print(f"{msg}")
+    @staticmethod
+    def opt(msg): return input(Back.GREEN + Fore.BLACK + Style.BRIGHT + f"{msg}")
+    @staticmethod
+    def processing_label(msg):
+        return Back.BLUE + Fore.WHITE + f"{msg}" + Style.RESET_ALL
+
 defaultHeaders = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.6788.76 Safari/537.36",
     "Accept": "*/*",
@@ -58,7 +72,7 @@ def get_with_retry(url, max_retries=3, backoff_factor=0.5, timeout=10): #有自�
         response.raise_for_status()  # 抛出 HTTP 错误（如 404, 500）
         return response
     except requests.RequestException as e:
-        print(f"{Fore.RED}{Style.BRIGHT}[ERR] 请求失败: {e}")
+        ColorPrint.err(f"[ERR] 请求失败: {e}")
         return None
 
 
@@ -68,18 +82,18 @@ def sanitize_filename(name: str) -> str: #函数，标准化章节名，避免�
 def remove_newlines_in_files(folder_path): #方法，将章节文档中的换行删去
     donePath = Path(f"{folder_path}/done")
     if donePath.exists() == True:
-        print(f"{Fore.CYAN}[INFO] 已处理过，跳过")
+        ColorPrint.info(f"[INFO] 已处理过，跳过")
         return
     
     folder = Path(folder_path)
-    for file in tqdm(list(folder.iterdir()), desc=f"{Fore.BLUE}[PROCESSING] 规范化文件中"):
+    for file in tqdm(list(folder.iterdir()), desc=ColorPrint.processing_label(f"[PROCESSING] 规范化文件中")):
         if file.is_file():
             try:
                 text = file.read_text(encoding='utf-8')
                 text_no_newlines = text.replace('\r', '').replace('\n', '')
                 file.write_text(text_no_newlines, encoding='utf-8')
             except Exception as e:
-                print(f"{Fore.RED}{Style.BRIGHT}[ERR] 处理失败 {folder_path}/{file.name}: {e}")
+                ColorPrint.err(f"[ERR] 处理失败 {folder_path}/{file.name}: {e}")
     
     with open(donePath,"w",encoding='utf-8') as f:
         f.write("OK")
@@ -88,10 +102,10 @@ def remove_newlines_in_files(folder_path): #方法，将章节文档中的换行
 def rename_files_in_folder(folder_path): #方法，将key文件名转化为chapterId
     donePath = Path("key/done")
     if donePath.exists() == True:
-        print(f"{Fore.CYAN}[INFO] 已处理过，跳过")
+        ColorPrint.info(f"[INFO] 已处理过，跳过")
         return
     
-    for filename in tqdm(os.listdir(folder_path),desc=f"{Fore.BLUE}[PROCESSING] 重命名中"):
+    for filename in tqdm(os.listdir(folder_path),desc=ColorPrint.processing_label(f"[PROCESSING] 重命名中")):
         full_path = os.path.join(folder_path, filename)
         if os.path.isfile(full_path):
             name, ext = os.path.splitext(filename)
@@ -102,7 +116,7 @@ def rename_files_in_folder(folder_path): #方法，将key文件名转化为chapt
                 new_full_path = os.path.join(folder_path, new_filename)
                 os.rename(full_path, new_full_path)
             except Exception as e:
-                print(f"{Fore.RED}{Style.BRIGHT}[ERR] 跳过了 {filename}: {e}")
+                ColorPrint.err(f"[ERR] 跳过了 {filename}: {e}")
     
     with open(donePath,"w",encoding='utf-8') as f:
         f.write("OK")
@@ -121,7 +135,7 @@ def getContents(book_id: int) -> List[Chapters]: #方法，获得具体目录
         response = requests.post(url, headers=headers, data=data, timeout=10)
         response.raise_for_status()
     except requests.RequestException as e:
-        print(f"{Fore.RED}{Style.BRIGHT}[ERR] 请求失败: {e}")
+        ColorPrint.err(f"[ERR] 请求失败: {e}")
         return []
     
     try:
@@ -141,7 +155,7 @@ def getContents(book_id: int) -> List[Chapters]: #方法，获得具体目录
             chapter_list.append(Chapters(chapter_id, cleaned_title))
         return chapter_list
     except Exception as e:
-        print(f"{Fore.RED}{Style.BRIGHT}[ERR] 解析章节列表失败: {e}")
+        ColorPrint.err(f"[ERR] 解析章节列表失败: {e}")
         return []
 
 def getName(book_id: int) -> Optional[BookInfo]: #方法，获取书籍信息
@@ -158,7 +172,7 @@ def getName(book_id: int) -> Optional[BookInfo]: #方法，获取书籍信息
         cover_tag = soup.find("meta", property="og:image")
 
         if not (title_tag and author_tag and cover_tag):
-            raise ValueError(f"{Fore.YELLOW}{Style.BRIGHT}[WARN] 缺失必要的 meta 标签")
+            raise ValueError(f"[WARN] 缺失必要的 meta 标签")
 
         name = title_tag["content"]
         author = author_tag["content"]
@@ -169,13 +183,13 @@ def getName(book_id: int) -> Optional[BookInfo]: #方法，获取书籍信息
             cover_resp.raise_for_status()
             cover = cover_resp.content
         except Exception as e:
-            print(f"{Fore.YELLOW}{Style.BRIGHT}[WARN] 封面图片获取失败: {e}")
+            ColorPrint.warn(f"[WARN] 封面图片获取失败: {e}")
             cover = None
 
         return BookInfo(name=name, author=author, cover=cover)
 
     except Exception as e:
-        print(f"{Fore.YELLOW}{Style.BRIGHT}[WARN] 自动获取书籍信息失败: {e}")
+        ColorPrint.warn(f"[WARN] 自动获取书籍信息失败: {e}")
         return None
 
 def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将txt中的图片链接下载并包含进入epub中
@@ -196,7 +210,7 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
             if parsed.scheme in ('http', 'https'):
                 resp = get_with_retry(src)
                 if resp.status_code != 200:
-                    raise ValueError(f"{Fore.RED}{Style.BRIGHT}[ERR] HTTP {resp.status_code}")
+                    raise ValueError(f"[ERR] HTTP {resp.status_code}")
                 image_data = resp.content
                 mime = magic.from_buffer(image_data, mime=True)
                 ext = mimetypes.guess_extension(mime)
@@ -211,7 +225,7 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
                 filename = f"{uuid.uuid4()}{ext}"
                 epub_path = Path("images") / filename
             else:
-                print(f"{Fore.YELLOW}{Style.BRIGHT}[WARN] 某一章节的图片下载失败")
+                ColorPrint.warn(f"[WARN] 某一章节的图片下载失败")
                 return
             
             image_items.append(epub.EpubItem(
@@ -222,7 +236,7 @@ def clean_html_with_images(raw_html: str, split_by_indent=True): #函数，将tx
             ))
             img_tag['src'] = epub_path.as_posix()
         except Exception as e:
-            print(f"{Fore.YELLOW}{Style.BRIGHT}[WARN] 图像处理失败: {src} - {e}")
+            ColorPrint.warn(f"[WARN] 图像处理失败: {src} - {e}")
             img_tag.decompose()
     text = str(soup)
     if split_by_indent:
@@ -240,12 +254,12 @@ def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, out
     if bookCover and isinstance(bookCover, bytes):
         epub_book.set_cover("cover.jpg", bookCover)
     else:
-        print(f"{Fore.YELLOW}{Style.BRIGHT}[WARN] 封面图片为空或格式不正确")
+        ColorPrint.warn(f"[WARN] 封面图片为空或格式不正确")
     epub_book.set_language("zh")
         
     spine = ['nav']
     epub_chapters = []
-    for idx, chapter in tqdm(list(enumerate(chapters)), desc=f"{Fore.BLUE}[PROCESSING]构建epub中"):
+    for idx, chapter in tqdm(list(enumerate(chapters)), desc=ColorPrint.processing_label(f"[PROCESSING] 构建epub中")):
 
         try:
             chapter_html, img_items = clean_html_with_images(chapter.content)
@@ -261,7 +275,7 @@ def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, out
             epub_chapters.append(c)
             spine.append(c)  # type: ignore
         except Exception as e:
-            print(f"{Fore.RED}{Style.BRIGHT}[ERR] 处理第 {idx + 1} 章时出错: {e}")
+            ColorPrint.err(f"[ERR] 处理第 {idx + 1} 章时出错: {e}")
     
     epub_book.spine = spine
     epub_book.toc = tuple(epub_chapters)  # type: ignore
@@ -270,15 +284,15 @@ def generate_epub(chapters: List, bookName: str, bookAuthor: str, bookCover, out
     
     try:
         epub.write_epub(output_path, epub_book, {})
-        print(f"{Fore.CYAN}[INFO] EPUB 成功生成：{output_path}")
+        ColorPrint.info(f"[INFO] EPUB 成功生成：{output_path}")
     except Exception as e:
-        print(f"{Fore.RED}{Style.BRIGHT}[ERR] 写入 EPUB 失败: {e}")
+        ColorPrint.err(f"[ERR] 写入 EPUB 失败: {e}")
 
 if __name__ == "__main__":
     rename_files_in_folder("key")
     
-    print(f"{Fore.CYAN}[INFO] 本程序基于Zn90107UlKa/CiweimaoDownloader@github.com\n{Fore.CYAN}[INFO] 如果您是通过被售卖的渠道获得的本软件，请您立刻申请退款。\n{Fore.CYAN}[INFO] 仅供个人学习与技术研究\n{Fore.CYAN}[INFO]禁止任何形式的商业用途\n{Fore.CYAN}[INFO] 所有内容版权归原作者及刺猬猫平台所有\n{Fore.CYAN}[INFO] 请在 24 小时内学习后立即删除文件\n{Fore.CYAN}[INFO] 作者不承担因不当使用导致的损失及法律后果")
-    bookUrl = input(f"{Fore.GREEN}{Style.BRIGHT}[OPT] 输入你想下载的书籍Url：")
+    ColorPrint.info(f"[INFO] 本程序基于Zn90107UlKa/CiweimaoDownloader@github.com\n[INFO] 如果您是通过被售卖的渠道获得的本软件，请您立刻申请退款。\n[INFO] 仅供个人学习与技术研究\n[INFO]禁止任何形式的商业用途\n[INFO] 所有内容版权归原作者及刺猬猫平台所有\n[INFO] 请在 24 小时内学习后立即删除文件\n[INFO] 作者不承担因不当使用导致的损失及法律后果")
+    bookUrl = ColorPrint.opt(f"[INFO] 输入你想下载的书籍Url：")
     
     bookId = int(bookUrl.split("/")[-1])
     bookPath = Path(f"{bookId}")
@@ -287,19 +301,19 @@ if __name__ == "__main__":
     
     chapters = getContents(bookId)
     if not chapters:
-        input(f"{Fore.GREEN}{Style.BRIGHT}[OPT]{Fore.RED}{Style.BRIGHT}[ERR] 无法获取目录，按回车退出程序，请稍后再试")
+        ColorPrint.opt(f"[INFO][ERR] 无法获取目录，按回车退出程序，请稍后再试")
         exit
     book_info = getName(bookId)
     if not book_info:
-        raise Exception(f"{Fore.RED}{Style.BRIGHT}[ERR] 无法获取书籍信息")
+        raise Exception(f"[ERR] 无法获取书籍信息")
     else:
-        print(f"{Fore.CYAN}[INFO] 获取到：标题: {book_info.name}， 作者： {book_info.author}")
+        ColorPrint.info(f"[INFO] 获取到：标题: {book_info.name}， 作者： {book_info.author}")
     
     count = 0
     FullChapters = []
     allContent = ""
     Path(f"decrypted/{bookId}").mkdir(parents=True,exist_ok=True)
-    for chapter in tqdm(chapters,desc=f"{Fore.BLUE}[PROCESSING] 解码中"):
+    for chapter in tqdm(chapters,desc=ColorPrint.processing_label(f"[PROCESSING] 解码中")):
         chapterId = chapter.id
         chapterTitle = chapter.title
         seedPath = Path(f"key/{chapterId}")
@@ -327,18 +341,16 @@ if __name__ == "__main__":
                 allContent += f"{chapterTitle}\n{txt}"
                 FullChapters.append(Chapters(chapterId,chapterTitle,txt))
             except:
-                print(f"{Fore.RED}{Style.BRIGHT}[ERR] 解密 {str(txtPath)} 时发生错误")
+                ColorPrint.err(f"[ERR] 解密 {str(txtPath)} 时发生错误")
                 continue
         except:
-            print(f"{Fore.YELLOW}{Style.BRIGHT}[WARN] {chapterTitle} 未购买")
+            ColorPrint.warn(f"[WARN] {chapterTitle} 未购买")
             txt = "本章未购买"
-            with open(decryptedTxtPath,"w",encoding='utf-8') as f:
-                f.write(txt)
             FullChapters.append(Chapters(chapterId,chapterTitle,txt))
     
     with open(Path(f"{sanitize_filename(book_info.name)}.txt"),"w",encoding="utf-8") as f:
         f.write(allContent)
-    print(f"{Fore.CYAN}[INFO] txt文件已生成在：{sanitize_filename(book_info.name)}")
-    print(f"{Fore.CYAN}[INFO] 正在打包Epub...")
+    ColorPrint.info(f"[INFO] txt文件已生成在：{sanitize_filename(book_info.name)}")
+    ColorPrint.info(f"[INFO] 正在打包Epub...")
     generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"{sanitize_filename(book_info.name)}.epub")
-    input(f"{Fore.GREEN}{Style.BRIGHT}[OPT] 任意键退出程序...")
+    ColorPrint.opt(f"[INFO] 任意键退出程序...")
