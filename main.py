@@ -59,7 +59,7 @@ def get_with_retry(url, max_retries=3, backoff_factor=0.5, timeout=10): #有自�
     retry_strategy = Retry(
         total=max_retries,               # 总重试次数
         status_forcelist=[403, 404, 429, 500, 502, 503, 504],  # 针对哪些状态码重试
-        allowed_methods=["GET"],         # 哪些 HTTP 方法允许重试（注意大小写）
+        allowed_methods={"GET"},         # 哪些 HTTP 方法允许重试（注意大小写）
         backoff_factor=backoff_factor    # 重试间的间隔因子（指数退避）
     )
 
@@ -74,13 +74,34 @@ def get_with_retry(url, max_retries=3, backoff_factor=0.5, timeout=10): #有自�
     except requests.RequestException as e:
         ColorPrint.err(f"[ERR] 请求失败: {e}")
         return None
+def post_with_retry(url, data, max_retries=3, backoff_factor=0.5, timeout=10): #有自动重试的get方法
+    session = requests.Session()
+    session.headers = defaultHeaders.copy()
 
+    retry_strategy = Retry(
+        total=max_retries,               # 总重试次数
+        status_forcelist=[403, 404, 429, 500, 502, 503, 504],  # 针对哪些状态码重试
+        allowed_methods={"POST"},         # 哪些 HTTP 方法允许重试（注意大小写）
+        backoff_factor=backoff_factor    # 重试间的间隔因子（指数退避）
+    )
+
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    try:
+        response = session.post(url, timeout=timeout, data=data)
+        response.raise_for_status()  # 抛出 HTTP 错误（如 404, 500）
+        return response
+    except requests.RequestException as e:
+        ColorPrint.err(f"[ERR] 请求失败: {e}")
+        return None
 
 def sanitize_filename(name: str) -> str: #函数，标准化章节名，避免章节名不符合Windows命名规范导致报错
     return re.sub(r'[\\/:*?"<>|]', '', name)
 
 def remove_newlines_in_files(folder_path): #方法，将章节文档中的换行删去
-    donePath = Path(f"{folder_path}/done")
+    donePath = Path(folder_path) / "done"
     if donePath.exists() == True:
         ColorPrint.info(f"[INFO] 已处理过，跳过")
         return
@@ -100,7 +121,7 @@ def remove_newlines_in_files(folder_path): #方法，将章节文档中的换行
     return
 
 def rename_files_in_folder(folder_path): #方法，将key文件名转化为chapterId
-    donePath = Path("key/done")
+    donePath = Path(folder_path) / "done"
     if donePath.exists() == True:
         ColorPrint.info(f"[INFO] 已处理过，跳过")
         return
@@ -132,7 +153,7 @@ def getContents(book_id: int) -> List[Chapters]: #方法，获得具体目录
     }
     
     try:
-        response = requests.post(url, headers=headers, data=data, timeout=10)
+        response = post_with_retry(url,data=data)
         response.raise_for_status()
     except requests.RequestException as e:
         ColorPrint.err(f"[ERR] 请求失败: {e}")
@@ -294,6 +315,9 @@ if __name__ == "__main__":
     bookUrl = ColorPrint.opt(f"[OPT] 输入你想下载的书籍Url：")
     
     bookId = int(bookUrl.split("/")[-1])
+    if not isinstance(bookId, int):
+        ColorPrint.opt("[OPT][ERR] 错误的输入，按回车退出程序")
+        exit()
     bookPath = Path(f"{bookId}")
     
     remove_newlines_in_files(bookPath)
@@ -301,7 +325,7 @@ if __name__ == "__main__":
     chapters = getContents(bookId)
     if not chapters:
         ColorPrint.opt(f"[OPT][ERR] 无法获取目录，按回车退出程序，请稍后再试")
-        exit
+        exit()
     book_info = getName(bookId)
     if not book_info:
         raise Exception(f"[ERR] 无法获取书籍信息")
@@ -310,45 +334,46 @@ if __name__ == "__main__":
     
     count = 0
     FullChapters = []
-    allContent = ""
     Path(f"decrypted/{bookId}").mkdir(parents=True,exist_ok=True)
     for chapter in tqdm(chapters,desc=ColorPrint.processing_label(f"[PROCESSING] 解码中")):
         chapterId = chapter.id
         chapterTitle = chapter.title
         seedPath = Path(f"key/{chapterId}")
         txtPath = Path(f"{bookId}/{chapterId}.txt")
-        
+        allTxtPath = Path(f"{sanitize_filename(book_info.name)}.txt")
         count += 1
         decryptedTxtPath = Path(f"decrypted/{bookId}/{count} {sanitize_filename(chapterTitle)}.txt")
         if decryptedTxtPath.exists() == True:
-            with open(decryptedTxtPath) as f:
+            with open(decryptedTxtPath, "r", encoding="utf-8") as f:
                 txt = f.read()
-            allContent += f"{chapterTitle}\n{txt}" #为生成txt做准备
+            with open(allTxtPath, "a", encoding="utf-8") as f:
+                f.write(chapterTitle + "\n" + txt + "\n\n")
             FullChapters.append(Chapters(chapterId,chapterTitle,txt))
             continue
         else:
             try:
-                with open(seedPath) as f:
+                with open(seedPath, 'r' , encoding="utf-8") as f:
                     seed = f.read()
-                with open(txtPath) as f:
+                with open(txtPath, 'r', encoding="utf-8") as f:
                     encryptedTxt = f.read()
                     
                 try:
                     txt = decrypt.decrypt_aes_base64(encryptedTxt, seed)
-                    with open(decryptedTxtPath,"w") as f:
+                    with open(decryptedTxtPath,"w", encoding="utf-8") as f:
                         f.write(txt)
-                    allContent += f"{chapterTitle}\n{txt}"
+                    with open(allTxtPath, "a", encoding="utf-8") as f:
+                        f.write(f"{chapterTitle}\n{txt}\n")
                     FullChapters.append(Chapters(chapterId,chapterTitle,txt))
                 except Exception as e:
-                    ColorPrint.err(f"[ERR] 解密 {str(txtPath)} 时发生错误")
+                    ColorPrint.err(f"[ERR] 解密 {str(txtPath)} 时发生错误：{e}")
                     continue
-            except:
+            except FileNotFoundError:
                 ColorPrint.warn(f"[WARN] {chapterTitle} 未购买")
                 txt = "本章未购买"
                 FullChapters.append(Chapters(chapterId,chapterTitle,txt))
+            except Exception as e:
+                ColorPrint.warn(f"[WARN] {e}")
     
-    with open(Path(f"{sanitize_filename(book_info.name)}.txt"),"w",encoding="utf-8") as f:
-        f.write(allContent)
     ColorPrint.info(f"[INFO] txt文件已生成在：{sanitize_filename(book_info.name)}")
     ColorPrint.info(f"[INFO] 正在打包Epub...")
     generate_epub(FullChapters, book_info.name, book_info.author, book_info.cover, f"{sanitize_filename(book_info.name)}.epub")

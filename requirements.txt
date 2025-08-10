@@ -1,0 +1,9 @@
+requests
+python-magic
+colorama
+dataclasses; python_version < "3.7"
+urllib3
+ebooklib
+beautifulsoup4
+tqdm
+pycryptodome
