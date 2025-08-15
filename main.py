@@ -90,6 +90,10 @@ def SanitizeName(name: str) -> str: #函数，标准化章节名，避免章节�
 
 def RemoveNewlinesInEachFile(folderPath): #方法，将章节文档中的换行删去
     folder = Path(folderPath)
+    if not folder.exists():
+        Print.err("[ERR] 找不到对应的目录")
+        print.opt("[OPT] 按回车退出程序...")
+        exit()
     
     donePath = folder / "done"
     if donePath.exists() == True:
@@ -110,6 +114,10 @@ def RemoveNewlinesInEachFile(folderPath): #方法，将章节文档中的换行�
 
 def TransformFilename(keyPath): #方法，将key文件名转化为chapterI
     folder = Path(keyPath)
+    if not folder.exists():
+        Print.err("[ERR] 找不到key目录")
+        print.opt("[OPT] 按回车退出程序...")
+        exit()
     
     donePath = donePath = folder / "done"
     if donePath.exists() == True:
@@ -129,7 +137,7 @@ def TransformFilename(keyPath): #方法，将key文件名转化为chapterI
         f.write("OK")
     return
 
-def getContents(book:Book): #方法，获得具体目录
+def GetContents(book:Book): #方法，获得具体目录
     url = "https://www.ciweimao.com/chapter/get_chapter_list_in_chapter_detail"
     data = {
         "book_id": book.id,
@@ -167,7 +175,7 @@ def getContents(book:Book): #方法，获得具体目录
         Print.err(f"[ERR] 解析章节列表失败: {e}")
         return -1
 
-def getName(book: Book) -> Optional[Book]: #方法，获取书籍信息
+def GetName(book: Book) -> Optional[Book]: #方法，获取书籍信息
     url = f"https://www.ciweimao.com/book/{book.id}"
 
     try:
@@ -262,7 +270,7 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
     textInBlock = ''.join(f"<p>{para.strip()}</p>" for para in paragraphs if para.strip())
     return textInBlock, imageItems
 
-def generateEpub(book:Book, output_path: str): #方法，生成epub
+def GenerateEpub(book:Book, output_path: str): #方法，生成epub
     epub_book = epub.EpubBook()
     epub_book.set_title(book.name or "未命名")
     epub_book.add_author(book.author or "佚名")
@@ -308,16 +316,26 @@ if __name__ == "__main__":
     book = Book()
     
     Print.info(f"[INFO] 本程序基于Zn90107UlKa/CiweimaoDownloader@github.com\n[INFO] 如果您是通过被售卖的渠道获得的本软件，请您立刻申请退款。\n[INFO] 仅供个人学习与技术研究\n[INFO] 禁止任何形式的商业用途\n[INFO] 所有内容版权归原作者及刺猬猫平台所有\n[INFO] 请在 24 小时内学习后立即删除文件\n[INFO] 作者不承担因不当使用导致的损失及法律后果")
-    book.url = Print.opt(f"[OPT] 输入你想下载的书籍Url：")
+    
+    rootFolder = Path('.')
+    try:
+        for folder in rootFolder.iterdir():
+            if folder.is_dir() and folder.name.isdigit():
+                Print.warn(f"[INFO] 自动模式找到了以下目录：{folder.name}")    
+    except Exception as e:
+        Print.err(f"[ERR] 自动寻找目录失败，原因是： {e}")
+    
+    book.url = Print.opt(f"[OPT] 输入你想下载的书籍Url或目录名字：")
     
     book.id = int(book.url.split("/")[-1])
     if not isinstance(book.id, int):
-        Print.opt("[OPT][ERR] 错误的输入，按回车退出程序")
+        Print.err("[ERR] 错误的输入")
+        Print.opt("[OPT] 按回车退出程序...")
         exit()
 
     RemoveNewlinesInEachFile(Path(f"{book.id}"))
     
-    if getName(book) != 0: #这个方法作用到了book上
+    if GetName(book) != 0: #这个方法作用到了book上
         raise Exception(f"[ERR] 无法获取书籍信息")
     else:
         Print.info(f"[INFO] 获取到：标题: {book.name}， 作者： {book.author}")
@@ -327,7 +345,7 @@ if __name__ == "__main__":
     book.decryptedFolder.mkdir(parents=True,exist_ok=True)
     book.decryptedTxt = Path(f"{book.safeName}.txt")
     
-    if getContents(book) != 0: #这个方法作用到了book上
+    if GetContents(book) != 0: #这个方法作用到了book上
         Print.opt(f"[OPT][ERR] 无法获取目录，请稍后再试，按回车退出程序")
         exit()
     
@@ -367,5 +385,5 @@ if __name__ == "__main__":
     
     Print.info(f"[INFO] txt文件已生成在：{book.safeName}")
     Print.info(f"[INFO] 正在打包Epub...")
-    generateEpub(book, f"{book.safeName}.epub")
+    GenerateEpub(book, f"{book.safeName}.epub")
     Print.opt(f"[OPT] 任意键退出程序...")

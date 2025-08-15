@@ -212,5 +212,5 @@ main-Nuitka.zip
 main-Pyinstaller.zip
 build-Nuitka.zip
 build-Pyinstaller.zip
-test/
+testData/
 epubcheck-5.2.1
