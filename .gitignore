@@ -208,8 +208,6 @@ __marimo__/
 
 decrypt.py
 .vscode/
-main-Nuitka.zip
-main-Pyinstaller.zip
 build-Nuitka.zip
 build-Pyinstaller.zip
 testData/

@@ -8,6 +8,7 @@ import mimetypes
 import decrypt
 
 from colorama import init, Fore, Style, Back
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from dataclasses import dataclass,field
 from requests.adapters import HTTPAdapter
@@ -270,7 +271,20 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
     textInBlock = ''.join(f"<p>{para.strip()}</p>" for para in paragraphs if para.strip())
     return textInBlock, imageItems
 
-def GenerateEpub(book:Book, output_path: str): #方法，生成epub
+def ProcessChapter(idx: int, chapter: Chapters): # 单章节处理逻辑，方便多线程调度
+    try:
+        chapter_html, img_items = GetImagesInTxt(chapter.content)
+        c = epub.EpubHtml(
+            title=chapter.title,
+            file_name=f'chap_{idx + 1}.xhtml',
+            lang='zh'
+        )
+        c.content = f"<h1>{chapter.title}</h1>{chapter_html}"
+        return idx, c, img_items, None
+    except Exception as e:
+        return idx, None, None, e
+
+def GenerateEpub(book: Book, output_path: str, max_workers: int = 8):  # 增加线程池大小控制
     epub_book = epub.EpubBook()
     epub_book.set_title(book.name or "未命名")
     epub_book.add_author(book.author or "佚名")
@@ -279,32 +293,36 @@ def GenerateEpub(book:Book, output_path: str): #方法，生成epub
     else:
         Print.warn(f"[WARN] 封面图片为空或格式不正确")
     epub_book.set_language("zh")
-        
+
     spine = ['nav']
     epub_chapters = []
-    for idx, chapter in tqdm(list(enumerate(book.chapters)), desc=Print.processingLabel(f"[PROCESSING] 构建epub中")):
 
-        try:
-            chapter_html, img_items = GetImagesInTxt(chapter.content)
-            c = epub.EpubHtml(
-                title=chapter.title,
-                file_name=f'chap_{idx + 1}.xhtml',
-                lang='zh'
-            )
-            c.content = f"<h1>{chapter.title}</h1>{chapter_html}"
-            epub_book.add_item(c)
-            for img in img_items:
-                epub_book.add_item(img)
-            epub_chapters.append(c)
-            spine.append(c)  # type: ignore
-        except Exception as e:
-            Print.err(f"[ERR] 处理第 {idx + 1} 章时出错: {e}")
-    
+    # ===== 使用线程池并行处理章节 =====
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(ProcessChapter, idx, chapter): idx
+                   for idx, chapter in enumerate(book.chapters)}
+
+        for future in tqdm(as_completed(futures), total=len(futures), desc=Print.processingLabel(f"[PROCESSING] 构建epub中")):
+            idx, c, img_items, err = future.result()
+            if err:
+                Print.err(f"[ERR] 处理第 {idx + 1} 章时出错: {err}")
+                continue
+            # 保持章节顺序
+            epub_chapters.append((idx, c, img_items))
+
+    # ===== 按顺序添加章节和图片 =====
+    epub_chapters.sort(key=lambda x: x[0])  # 按 idx 排序
+    for idx, c, img_items in epub_chapters:
+        epub_book.add_item(c)
+        for img in img_items:
+            epub_book.add_item(img)
+        spine.append(c)  # type: ignore
+
     epub_book.spine = spine
-    epub_book.toc = tuple(epub_chapters)  # type: ignore
+    epub_book.toc = tuple([c for _, c, _ in epub_chapters])  # type: ignore
     epub_book.add_item(epub.EpubNcx())
     epub_book.add_item(epub.EpubNav())
-    
+
     try:
         epub.write_epub(output_path, epub_book, {})
         Print.info(f"[INFO] EPUB 成功生成：{output_path}")
