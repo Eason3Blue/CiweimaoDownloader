@@ -13,6 +13,8 @@
 
 ## 使用教程
 
+更好更详细的教程请转至 [刺猬猫小说下载为txt和epub @insaua.com](https://www.insaua.com/2025/07/14/%E5%88%BA%E7%8C%AC%E7%8C%AB%E5%B0%8F%E8%AF%B4%E4%B8%8B%E8%BD%BD%E4%B8%BAtxt%E5%92%8Cepub/) 或者 [刺猬猫小说下载为txt和epub @bilibili.com](https://www.bilibili.com/read/cv42323693)
+
 ### 1. 准备环境
 * 下载并安装支持 Root 权限的安卓模拟器（如 MuMu Player）
 * 下载刺猬猫 App （版本需大于v2.9.303）
