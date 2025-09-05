@@ -16,16 +16,18 @@ from urllib3.util.retry import Retry
 from ebooklib import epub
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
-from typing import List,Optional
+from typing import Optional
 from tqdm import tqdm
 
 @dataclass
 class Chapters:
     id: int = field(default_factory=int)
+    isVolIntro: bool = False
     decrypted: Path = field(default_factory=Path)
     key: Path = field(default_factory=Path)
     encryptedTxt: Path = field(default_factory=Path)
     title: str = field(default_factory=str)
+    safeTitle: str = field(default_factory=str)
     content:str = field(default_factory=str)
 
 @dataclass
@@ -88,6 +90,19 @@ class Requests:
 
 def SanitizeName(name: str) -> str: #函数，标准化章节名，避免章节名不符合Windows命名规范导致报错
     return re.sub(r'[\\/:*?"<>|]', '', name)
+
+def CheckImageMIME(img: bytes):
+    mime = magic.from_buffer(img, mime=True) #获取图片mime
+    ext = mimetypes.guess_extension(mime) #根据mime获取后缀
+    if not ext:
+        fallback = {
+            "image/webp": ".webp",
+            "image/x-icon": ".ico",
+            "image/heic": ".heic",
+            "image/heif": ".heif",
+        }
+        ext = fallback.get(mime, "")
+    return mime, ext
 
 def RemoveNewlinesInEachFile(folderPath): #方法，将章节文档中的换行删去
     folder = Path(folderPath)
@@ -154,23 +169,29 @@ def GetContents(book:Book): #方法，获得具体目录
     try:
         soup = BeautifulSoup(response.text, "html.parser")
         count = 0
-        for li in soup.select("ul.book-chapter-list li"): #根据网页的每一项找到每一章节
-            count += 1
-            a = li.find("a", href=True)
-            if not a:
-                continue
-            href = a["href"]
-            try:
-                id = int(href.strip().split("/")[-1])
-            except ValueError:
-                continue
-            title = a.get_text(strip=True)
-
-            chapter = Chapters(id = id, title = title)
-            chapter.decrypted = book.decryptedFolder / f"{count} {SanitizeName(chapter.title)}.txt"
-            chapter.key = Path(f"key/{chapter.id}")
-            chapter.encryptedTxt = Path(f"{book.id}/{chapter.id}.txt")
+        
+        for box in soup.select("div.book-chapter-box"):
+        # 卷名
+            vol_title = box.select_one("h4.sub-tit").get_text(strip=True)
+            chapter = Chapters()
+            chapter.title = vol_title
+            chapter.isVolIntro = True
             book.chapters.append(chapter)
+
+            # 卷下的章节
+            for a in box.select("ul.book-chapter-list li a"):
+                count += 1
+                url = a.get("href")
+                # 去掉章节标题里的多余空格和换行
+                title = a.get_text(strip=True)
+                chapter = Chapters()
+                chapter.title = title
+                chapter.id = int(url.strip().split("/")[-1])
+                chapter.safeTitle = SanitizeName(title)
+                chapter.decrypted = book.decryptedFolder / f"{count} {chapter.safeTitle}.txt"
+                chapter.key = Path(f"key/{chapter.id}")
+                chapter.encryptedTxt = Path(f"{book.id}/{chapter.id}.txt")
+                book.chapters.append(chapter)
         return 0
     except Exception as e:
         Print.err(f"[ERR] 解析章节列表失败: {e}")
@@ -240,16 +261,7 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
                     continue
     
                 image_data = response.content
-                mime = magic.from_buffer(image_data, mime=True) #获取图片mime，符合epub检查
-                ext = mimetypes.guess_extension(mime) #根据mime获取后缀
-                if not ext:
-                    fallback = {
-                        "image/webp": ".webp",
-                        "image/x-icon": ".ico",
-                        "image/heic": ".heic",
-                        "image/heif": ".heif",
-                    }
-                    ext = fallback.get(mime, "")
+                mime, ext = CheckImageMIME(image_data)
                 filename = f"{uuid.uuid4()}{ext}"
                 epub_path = Path("images") / filename
             else:
@@ -274,25 +286,27 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
 def ProcessChapter(idx: int, chapter: Chapters): # 单章节处理逻辑，方便多线程调度
     try:
         chapter_html, img_items = GetImagesInTxt(chapter.content)
-        c = epub.EpubHtml(
+        epubChapter = epub.EpubHtml(
             title=chapter.title,
             file_name=f'chap_{idx + 1}.xhtml',
             lang='zh'
         )
-        c.content = f"<h1>{chapter.title}</h1>{chapter_html}"
-        return idx, c, img_items, None
+        epubChapter.content = f"<h1>{chapter.title}</h1>{chapter_html}"
+        return idx, epubChapter, img_items, chapter.isVolIntro, None
     except Exception as e:
-        return idx, None, None, e
+        return idx, None, None, None, e
 
 def GenerateEpub(book: Book, output_path: str, max_workers: int = 8):  # 增加线程池大小控制
     epub_book = epub.EpubBook()
     epub_book.set_title(book.name or "未命名")
     epub_book.add_author(book.author or "佚名")
-    if book.cover and isinstance(book.cover, bytes):
-        epub_book.set_cover("cover.jpg", book.cover)
-    else:
-        Print.warn(f"[WARN] 封面图片为空或格式不正确")
     epub_book.set_language("zh")
+    try:
+        mime, ext = CheckImageMIME(book.cover)
+        epub_book.set_cover(f"cover.{ext}", book.cover)
+    except Exception as e:
+        Print.warn(f"[WARN] {e}")
+    
 
     spine = ['nav']
     epub_chapters = []
@@ -303,23 +317,43 @@ def GenerateEpub(book: Book, output_path: str, max_workers: int = 8):  # 增加�
                    for idx, chapter in enumerate(book.chapters)}
 
         for future in tqdm(as_completed(futures), total=len(futures), desc=Print.processingLabel(f"[PROCESSING] 构建epub中")):
-            idx, c, img_items, err = future.result()
+            idx, epubChapter, img_items, isVol, err = future.result()
             if err:
                 Print.err(f"[ERR] 处理第 {idx + 1} 章时出错: {err}")
                 continue
             # 保持章节顺序
-            epub_chapters.append((idx, c, img_items))
+            for img in img_items:
+                epub_book.add_item(img)
+            epub_chapters.append((idx, epubChapter, isVol))
 
     # ===== 按顺序添加章节和图片 =====
     epub_chapters.sort(key=lambda x: x[0])  # 按 idx 排序
-    for idx, c, img_items in epub_chapters:
+    for idx, c, _ in epub_chapters:
         epub_book.add_item(c)
-        for img in img_items:
-            epub_book.add_item(img)
         spine.append(c)  # type: ignore
 
+    isCurInSec = False
+    curVolTitle = ""
+    curSecChapters = [] #每分卷的章节
+    toc = [] #最终的目录
+    for idx, epubChapter, isVol in epub_chapters:
+        if isVol == True:
+            if isCurInSec == True:
+                toc.append([epub.Section(curVolTitle), curSecChapters.copy()]) #保存上一卷
+            curSecChapters.clear()
+            curVolTitle = epubChapter.title
+            isCurInSec = True
+        else:
+            if isCurInSec == True:
+                curSecChapters.append(epubChapter)
+            else:
+                toc.append(epubChapter)
+    if isCurInSec:
+        toc.append((epub.Section(curVolTitle),curSecChapters.copy()))
+
+
     epub_book.spine = spine
-    epub_book.toc = tuple([c for _, c, _ in epub_chapters])  # type: ignore
+    epub_book.toc = tuple(toc)  # type: ignore
     epub_book.add_item(epub.EpubNcx())
     epub_book.add_item(epub.EpubNav())
 
@@ -370,36 +404,37 @@ if __name__ == "__main__":
     
 
     for chapter in tqdm(book.chapters,desc=Print.processingLabel(f"[PROCESSING] 解码中")):
-        if chapter.decrypted.exists() == True:
-            with open(chapter.decrypted, "r", encoding="utf-8") as f: #读取缓存
-                txt = f.read()
-                chapter.content = txt
-            with open(book.decryptedTxt, "a", encoding="utf-8") as f:
-                f.write(chapter.title + "\n" + txt + "\n\n")
-            continue
-        else:
-            try:
-                with open(chapter.key, 'r' , encoding="utf-8") as f:
-                    seed = f.read()
-                with open(chapter.encryptedTxt, 'r', encoding="utf-8") as f:
-                    encryptedTxt = f.read()
-                    
-                try:
-                    txt = decrypt.decrypt(encryptedTxt, seed)
+        if chapter.isVolIntro == False:
+            if chapter.decrypted.exists() == True:
+                with open(chapter.decrypted, "r", encoding="utf-8") as f: #读取缓存
+                    txt = f.read()
                     chapter.content = txt
-                    with open(chapter.decrypted,"w", encoding="utf-8") as f:
-                        f.write(txt)
-                    with open(book.decryptedTxt, "a", encoding="utf-8") as f:
-                        f.write(f"{chapter.title}\n{txt}\n")
+                with open(book.decryptedTxt, "a", encoding="utf-8") as f:
+                    f.write(chapter.title + "\n" + txt + "\n\n")
+                continue
+            else:
+                try:
+                    with open(chapter.key, 'r' , encoding="utf-8") as f:
+                        seed = f.read()
+                    with open(chapter.encryptedTxt, 'r', encoding="utf-8") as f:
+                        encryptedTxt = f.read()
+                        
+                    try:
+                        txt = decrypt.decrypt(encryptedTxt, seed)
+                        chapter.content = txt
+                        with open(chapter.decrypted,"w", encoding="utf-8") as f:
+                            f.write(txt)
+                        with open(book.decryptedTxt, "a", encoding="utf-8") as f:
+                            f.write(f"{chapter.title}\n{txt}\n")
+                    except Exception as e:
+                        Print.err(f"[ERR] 保存 {str(chapter.encryptedTxt)} 时发生错误：{e}")
+                        continue
+                except FileNotFoundError:
+                    Print.warn(f"[WARN] {chapter.title} 未购买")
+                    txt = "本章未购买"
+                    chapter.content = txt
                 except Exception as e:
-                    Print.err(f"[ERR] 解密 {str(chapter.encryptedTxt)} 时发生错误：{e}")
-                    continue
-            except FileNotFoundError:
-                Print.warn(f"[WARN] {chapter.title} 未购买")
-                txt = "本章未购买"
-                chapter.content = txt
-            except Exception as e:
-                Print.warn(f"[WARN] {e}")
+                    Print.warn(f"[WARN] {e}")
     
     Print.info(f"[INFO] txt文件已生成在：{book.safeName}")
     Print.info(f"[INFO] 正在打包Epub...")
