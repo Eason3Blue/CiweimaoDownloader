@@ -435,6 +435,14 @@ if __name__ == "__main__":
                     chapter.content = txt
                 except Exception as e:
                     Print.warn(f"[WARN] {e}")
+        else:
+            try:
+                txt = ""
+                with open(book.decryptedTxt, "a", encoding="utf-8") as f:
+                    f.write(f"{chapter.title}\n{txt}\n")
+            except Exception as e:
+                Print.err(f"[ERR] 保存 {str(chapter.encryptedTxt)} 时发生错误：{e}")
+                continue
     
     Print.info(f"[INFO] txt文件已生成在：{book.safeName}")
     Print.info(f"[INFO] 正在打包Epub...")
