@@ -2,6 +2,10 @@
 
 下载刺猬猫的小说为txt和epub，避免书本下架，不能下载未购买章节。
 
+<script src="//api.busuanzi.cc/static/3.6.9/busuanzi.min.js" defer></script>
+本页总阅读量 <span id="busuanzi_page_pv">加载中...</span> 次
+本页总访客数 <span id="busuanzi_page_uv">加载中...</span> 人
+
 ### 本软件优点
    1. 下载在手机端进行，软件无需登录，不接触账号相关数据。
    2. 自动生成全文txt、epub以及单章txt，且自动解析文章中的图片url后整合到epub中，且位置不变。
