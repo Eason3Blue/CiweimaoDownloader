@@ -132,7 +132,7 @@ def TransformFilename(keyPath): #方法，将key文件名转化为chapterI
     folder = Path(keyPath)
     if not folder.exists():
         Print.err("[ERR] 找不到key目录")
-        print.opt("[OPT] 按回车退出程序...")
+        Print.opt("[OPT] 按回车退出程序...")
         exit()
     
     donePath = donePath = folder / "done"
