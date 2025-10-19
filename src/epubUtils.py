@@ -34,9 +34,9 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
                         response = models.Requests().get(imgUrl)
                     except requests.RequestException:
                         continue
-                    
-                    with open(Path(f"{config.imageFolder}/{parsed.path.split('/')[-1]}"), "wb") as f:
-                        f.write(response.content)
+                    if config.setting.cache.image == True:
+                        with open(Path(f"{config.imageFolder}/{parsed.path.split('/')[-1]}"), "wb") as f:
+                            f.write(response.content)
                     image_data = response.content
                     mime, ext = tools.CheckImageMIME(image_data)
                     filename = f"{uuid.uuid4()}{ext}"
