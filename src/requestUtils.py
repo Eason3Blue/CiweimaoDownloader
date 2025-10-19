@@ -43,8 +43,8 @@ def GetContents(book:models.Book): #方法，获得具体目录
                 chapter.safeTitle = tools.SanitizeName(title)
                 if (config.setting.cache.text == True):
                     chapter.decrypted = Path(config.textFolder) / f"{count} {chapter.safeTitle}.txt"
-                chapter.key = Path(f"key/{chapter.id}")
-                chapter.encryptedTxt = Path(f"{book.id}/{chapter.id}.txt")
+                chapter.key = Path(f"key\\{chapter.id}")
+                chapter.encryptedTxt = Path(f"{book.id}\\{chapter.id}.txt")
                 book.chapters.append(chapter)
         return 0
     except Exception as e:

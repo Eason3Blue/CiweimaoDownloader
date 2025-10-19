@@ -19,11 +19,11 @@ cache:
   #生成文本的缓存
   text: true
   #可选的参数有 {bookID}
-  textFolder: "decrypted/{bookID}/text"
+  textFolder: "decrypted\\{bookID}\\text"
   #生成图片的缓存
   image: false
   #可选的参数有 {bookID}
-  imageFolder: "decrypted/{bookID}/images"
+  imageFolder: "decrypted\\{bookID}\\images"
 
 #日志相关的设置
 log:

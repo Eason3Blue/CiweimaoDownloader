@@ -29,20 +29,20 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
             if parsed.scheme in ('http', 'https'):
                 
                 if(config.setting.cache.image == False or 
-                   Path(f"{config.imageFolder}/{parsed.path.split('/')[-1]}").exists() == False): #缓存选项未开或未找到缓存
+                   Path(f"{config.imageFolder}\\{parsed.path.split('/')[-1]}").exists() == False): #缓存选项未开或未找到缓存
                     try:
                         response = models.Requests().get(imgUrl)
                     except requests.RequestException:
                         continue
                     if config.setting.cache.image == True:
-                        with open(Path(f"{config.imageFolder}/{parsed.path.split('/')[-1]}"), "wb") as f:
+                        with open(Path(f"{config.imageFolder}\\{parsed.path.split('/')[-1]}"), "wb") as f:
                             f.write(response.content)
                     image_data = response.content
                     mime, ext = tools.CheckImageMIME(image_data)
                     filename = f"{uuid.uuid4()}{ext}"
                     epub_path = Path("images") / filename
                 else:
-                    with open(Path(f"{config.imageFolder}/{parsed.path.split('/')[-1]}"), "rb") as f:
+                    with open(Path(f"{config.imageFolder}\\{parsed.path.split('/')[-1]}"), "rb") as f:
                         image_data = f.read()
                         
                     mime, ext = tools.CheckImageMIME(image_data)
@@ -65,7 +65,7 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
     text = str(soup) #获取imgUrl替换后的txt
     paragraphs = re.split(r'(?=　　)', text)
 
-    textInBlock = ''.join(f"<p>{para.strip()}</p>" for para in paragraphs if para.strip())
+    textInBlock = ''.join(f"<p>{para.strip()}<\\p>" for para in paragraphs if para.strip())
     return textInBlock, imageItems
 
 def ProcessChapter(idx: int, chapter: models.Chapters): # 单章节处理逻辑，方便多线程调度

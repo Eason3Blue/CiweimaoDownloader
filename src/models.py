@@ -93,9 +93,9 @@ class batchConfig(BaseModel):
 
 class cacheConfig(BaseModel):
     text: bool = True
-    textFolder: str = "decrypted/<bookID>/text"
+    textFolder: str = "decrypted\\<bookID>\\text"
     image: bool = False
-    imageFolder: str = "decrypted/<bookID>/images"
+    imageFolder: str = "decrypted\\<bookID>/images"
 
 class logConfig(BaseModel):
     notFoundWarn: bool = True
