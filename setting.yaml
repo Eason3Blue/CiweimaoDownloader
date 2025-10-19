@@ -1,0 +1,36 @@
+#这是介绍页生成的选项
+homePage:  
+  enable: true
+  #可选的参数有{bookCover} {bookName} {bookAuthor} {bookDescription}
+  style: "{bookCover}\n书名:{bookName}\n作者:{bookAuthor}\n描述:{bookDescription}"
+
+#这是批量模式的开启选项
+batch: 
+  enable: true
+  #打开这个选项能让程序自动处理目录下的以数字为名的文件夹，queue中的内容会被忽略
+  auto: true
+  #输入你想处理的书籍的url或者id
+  queue:
+    - 100000000
+    - 200000000
+
+#这是缓存的选项
+cache:
+  #生成文本的缓存
+  text: true
+  #可选的参数有 {bookID}
+  textFolder: "decrypted/{bookID}/text"
+  #生成图片的缓存
+  image: false
+  #可选的参数有 {bookID}
+  imageFolder: "decrypted/{bookID}/images"
+
+#日志相关的设置
+log:
+  #关闭这个选项会忽略"xxx章未购买"的警告
+  notFoundWarn: true
+
+#多线程相关的设置
+multiThread:
+  #最大线程数
+  maxWorkers: 8

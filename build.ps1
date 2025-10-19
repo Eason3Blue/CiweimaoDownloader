@@ -1,5 +1,5 @@
-nuitka --onefile --follow-imports --output-dir=build .\main.py
+nuitka --onefile --follow-imports --output-dir=build .\src\main.py
 
-pyinstaller .\main.py
+pyinstaller --onefile .\src\main.py
 
 pause
