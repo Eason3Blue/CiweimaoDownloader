@@ -6,7 +6,7 @@ homePage:
 
 #这是批量模式的开启选项
 batch: 
-  enable: true
+  enable: false
   #打开这个选项能让程序自动处理目录下的以数字为名的文件夹，queue中的内容会被忽略
   auto: true
   #输入你想处理的书籍的url或者id

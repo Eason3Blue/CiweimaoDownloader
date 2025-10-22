@@ -65,7 +65,7 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
     text = str(soup) #获取imgUrl替换后的txt
     paragraphs = re.split(r'(?=　　)', text)
 
-    textInBlock = ''.join(f"<p>{para.strip()}<\\p>" for para in paragraphs if para.strip())
+    textInBlock = ''.join(f"<p>{para.strip()}</p>" for para in paragraphs if para.strip())
     return textInBlock, imageItems
 
 def ProcessChapter(idx: int, chapter: models.Chapters): # 单章节处理逻辑，方便多线程调度
