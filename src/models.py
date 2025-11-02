@@ -103,9 +103,14 @@ class logConfig(BaseModel):
 class multiThreadConfig(BaseModel):
     maxWorkers: int = 8
 
+class manualBookConfig(BaseModel):
+    enable: bool = False
+    jsonString: str = field(default_factory=str)
+
 class Config(BaseModel):
     homePage: homePageConfig
     batch: batchConfig
     cache: cacheConfig
     log: logConfig
     multiThread: multiThreadConfig
+    manualBook: manualBookConfig

@@ -8,6 +8,7 @@ import tools
 import decrypt
 from pathlib import Path
 from tqdm import tqdm
+import json
 
 if __name__ == "__main__":
     config.init()
@@ -20,7 +21,11 @@ if __name__ == "__main__":
     rootFolder = Path('.')
     queue = []
     
-    if config.setting.batch.enable == False:
+    if config.setting.manualBook.enable == True:
+        models.Print.info("[INFO] 手动目录模式已开启")
+        queue.append(book.id)
+        
+    elif config.setting.batch.enable == False:
         try:
             for folder in rootFolder.iterdir():
                 if folder.is_dir() and folder.name.isdigit():
@@ -44,44 +49,58 @@ if __name__ == "__main__":
     for url in queue:
         book = models.Book() #清空状态
         
-        book.url = url
-        book.id = int(urlparse(str(book.url)).path.split('/')[-1])
+        if config.setting.manualBook.enable == True:
+            try:
+                bookJson = json.loads(config.setting.manualBook.jsonString)
+                book.id = int(bookJson["bookID"])
+                book.name = bookJson["bookName"]
+                book.author = bookJson["authorName"]
+                book.description = bookJson["bookDescription"]
+                with open(Path(bookJson["coverPath"]), "rb") as f:
+                    book.cover = f.read()
+                count = 0
+                for chapter in bookJson["contents"]:
+                    book.chapters.append(models.Chapters(bookJson["contents"][count]["chapterID"],title=bookJson["contents"][count]["chapterName"]))
+                    count += 1
+            except Exception as e:
+                models.Print.err(f"[ERR] {e}")
+        else:
+            book.url = url
+            book.id = int(urlparse(str(book.url)).path.split('/')[-1])
+
         if not isinstance(book.id, int):
             models.Print.err(f"[ERR] 错误的输入：{url}，这一项会被忽略")
             continue
+
+        fileUtils.RemoveNewlinesInEachFile(Path(f"{book.id}"))
+        
+        if config.setting.manualBook.enable == False:
+            if requestUtils.GetName(book) != 0: #这个方法作用到了book上
+                raise Exception(f"[ERR] 无法获取书籍信息")
+            else:
+                models.Print.info(f"[INFO] 获取到：标题: {book.name}， 作者： {book.author}")
+            
+            if requestUtils.GetContents(book) != 0: #这个方法作用到了book上
+                models.Print.opt(f"[OPT][ERR] 无法获取目录，请稍后再试，按回车退出程序")
+                exit()
         
         if config.setting.cache.text == True:
             try:
-                config.textFolder = config.setting.cache.textFolder.format_map({
-                    "bookID" : book.id
-                })
+                config.textFolder = tools.ProcessString(config.setting.cache.textFolder, book)
                 Path(config.textFolder).mkdir(parents=True,exist_ok=True)
             except Exception as e:
                 models.Print.err(f"[ERR] 设置文件中，textFolder为无效地址，错误为{e}")
 
         if config.setting.cache.image == True:
             try:
-                config.imageFolder = config.setting.cache.imageFolder.format_map({
-                    "bookID" : book.id
-                })
+                config.imageFolder = tools.ProcessString(config.setting.cache.imageFolder,book)
                 Path(config.imageFolder).mkdir(parents=True,exist_ok=True)
             except Exception as e:
                 models.Print.err(f"[ERR] 设置文件中，imageFolder为无效地址，错误为{e}")
-
-        fileUtils.RemoveNewlinesInEachFile(Path(f"{book.id}"))
         
-        if requestUtils.GetName(book) != 0: #这个方法作用到了book上
-            raise Exception(f"[ERR] 无法获取书籍信息")
-        else:
-            models.Print.info(f"[INFO] 获取到：标题: {book.name}， 作者： {book.author}")
+        config.CalculateParama(book)
         
-        book.safeName = tools.SanitizeName(book.name)
-        book.decryptedTxt = Path(f"{book.safeName}.txt")
         if book.decryptedTxt.exists(): book.decryptedTxt.unlink(True) #避免重复写入，先删除
-        
-        if requestUtils.GetContents(book) != 0: #这个方法作用到了book上
-            models.Print.opt(f"[OPT][ERR] 无法获取目录，请稍后再试，按回车退出程序")
-            exit()
         
         for chapter in tqdm(book.chapters,desc=models.Print.processingLabel(f"[PROCESSING] 解码中")):
             if chapter.isVolIntro == False:
@@ -131,12 +150,7 @@ if __name__ == "__main__":
         if (config.setting.homePage.enable == True): 
             models.Print.warn("[INFO] 检测到书籍主页选项打开")
             chapter = models.Chapters(isVolIntro=False, id=0, title=book.name)
-            chapter.content = config.setting.homePage.style.format_map({
-                "bookCover": f'<img src="{book.coverUrl}" alt="书籍封面">',
-                "bookName": book.name,
-                "bookAuthor": book.author,
-                "bookDescription": book.description
-            })
+            chapter.content = tools.ProcessString(config.setting.homePage.style, book)
             chapter.isVolIntro = False
             book.chapters.insert(0,chapter)
         

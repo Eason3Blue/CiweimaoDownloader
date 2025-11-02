@@ -1,11 +1,8 @@
 import re
 import magic
 import mimetypes
-import base64 
-import hashlib
-from Crypto.Cipher import AES
+import models
 from typing import Optional
-from Crypto.Util.Padding import unpad
 
 def SanitizeName(name: str) -> str: #函数，标准化章节名，避免章节名不符合Windows命名规范导致报错
     return re.sub(r'[\\/:*?"<>|]', '', name)
@@ -22,3 +19,13 @@ def CheckImageMIME(img: Optional[bytes]):
         }
         ext = fallback.get(mime, "")
     return mime, ext
+
+def ProcessString(originStr:str, dataSource:models.Book, rule:dict = {}):
+    rule = {
+                "bookID": dataSource.id,
+                "bookCover": f'<img src="{dataSource.coverUrl}" alt="书籍封面">',
+                "bookName": dataSource.name,
+                "bookAuthor": dataSource.author,
+                "bookDescription": dataSource.description
+            }
+    return originStr.format_map(rule)

@@ -21,7 +21,6 @@ def GetContents(book:models.Book): #方法，获得具体目录
     
     try:
         soup = BeautifulSoup(response.text, "html.parser")
-        count = 0
         
         for box in soup.select("div.book-chapter-box"):
         # 卷名
@@ -33,18 +32,12 @@ def GetContents(book:models.Book): #方法，获得具体目录
 
             # 卷下的章节
             for a in box.select("ul.book-chapter-list li a"):
-                count += 1
                 url = a.get("href")
                 # 去掉章节标题里的多余空格和换行
                 title = a.get_text(strip=True)
                 chapter = models.Chapters()
                 chapter.title = title
                 chapter.id = int(url.strip().split("/")[-1]) # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
-                chapter.safeTitle = tools.SanitizeName(title)
-                if (config.setting.cache.text == True):
-                    chapter.decrypted = Path(config.textFolder) / f"{count} {chapter.safeTitle}.txt"
-                chapter.key = Path(f"key\\{chapter.id}")
-                chapter.encryptedTxt = Path(f"{book.id}\\{chapter.id}.txt")
                 book.chapters.append(chapter)
         return 0
     except Exception as e:
