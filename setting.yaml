@@ -37,7 +37,7 @@ multiThread:
 
 #手动目录的设置选项
 manualBook:
-  enable: true
+  enable: false
   jsonString: '{"bookID": "100000005","bookName":"我的奋斗","authorName":"希尔","bookDescription": "这是我的奋斗的简介","coverPath":"./cover.jpg","contents":[{"chapterName":"第一章","chapterID":10000001},{"chapterName":"第二章","chapterID":10000002},{"chapterName":"终章","chapterID":10000003}]}'
   #{
   #  "bookID": 100000005,
