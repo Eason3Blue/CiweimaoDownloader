@@ -1,8 +1,8 @@
 #这是介绍页生成的选项
 homePage:  
   enable: true
-  #可选的参数有 {bookID} {bookCover} {bookName} {bookAuthor} {bookDescription}
-  style: "{bookCover}\n书名:{bookName}\n作者:{bookAuthor}\n描述:{bookDescription}"
+  #可选的参数有 {bookID} {bookCover} {bookName} {bookAuthor} {bookDescription} {Enter}
+  style: "{bookCover}{Enter}书名:{bookName}{Enter}作者:{bookAuthor}{Enter}描述:{bookDescription}"
 
 #这是批量模式的开启选项
 batch: 

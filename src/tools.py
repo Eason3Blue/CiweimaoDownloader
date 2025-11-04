@@ -26,6 +26,7 @@ def ProcessString(originStr:str, dataSource:models.Book, rule:dict = {}):
                 "bookCover": f'<img src="{dataSource.coverUrl}" alt="书籍封面">',
                 "bookName": dataSource.name,
                 "bookAuthor": dataSource.author,
-                "bookDescription": dataSource.description
+                "bookDescription": dataSource.description,
+                "Enter": "　　"
             }
     return originStr.format_map(rule)
