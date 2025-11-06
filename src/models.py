@@ -105,6 +105,7 @@ class multiThreadConfig(BaseModel):
 
 class manualBookConfig(BaseModel):
     enable: bool = False
+    autoExtend: bool = True
     jsonString: str = field(default_factory=str)
 
 class Config(BaseModel):

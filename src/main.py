@@ -1,3 +1,5 @@
+from encodings.punycode import T
+from genericpath import isfile
 from urllib.parse import urlparse
 import models
 import requestUtils
@@ -14,8 +16,7 @@ if __name__ == "__main__":
     config.init()
     
     fileUtils.TransformFilename("key")
-    book = models.Book()
-    
+
     models.Print.info(f"[INFO] 本程序基于Zn90107UlKa/CiweimaoDownloader@github.com\n[INFO] 如果您是通过被售卖的渠道获得的本软件，请您立刻申请退款。\n[INFO] 仅供个人学习与技术研究\n[INFO] 禁止任何形式的商业用途\n[INFO] 所有内容版权归原作者及刺猬猫平台所有\n[INFO] 请在 24 小时内学习后立即删除文件\n[INFO] 作者不承担因不当使用导致的损失及法律后果")
     
     rootFolder = Path('.')
@@ -23,7 +24,7 @@ if __name__ == "__main__":
     
     if config.setting.manualBook.enable == True:
         models.Print.info("[INFO] 手动目录模式已开启")
-        queue.append(book.id)
+        queue.append("1000000")
         
     elif config.setting.batch.enable == False:
         try:
@@ -49,22 +50,28 @@ if __name__ == "__main__":
     for url in queue:
         book = models.Book() #清空状态
         
-        if config.setting.manualBook.enable == True:
+        if config.setting.manualBook.enable == True: # 手动模式读取json
             try:
                 bookJson = json.loads(config.setting.manualBook.jsonString)
                 book.id = int(bookJson["bookID"])
                 book.name = bookJson["bookName"]
                 book.author = bookJson["authorName"]
                 book.description = bookJson["bookDescription"]
-                with open(Path(bookJson["coverPath"]), "rb") as f:
-                    book.cover = f.read()
+                try:
+                    with open(Path(bookJson["coverPath"]), "rb") as f:
+                        book.cover = f.read()
+                except Exception as e:
+                    models.Print.err(f"[ERR] {e}")
                 count = 0
-                for chapter in bookJson["contents"]:
-                    book.chapters.append(models.Chapters(bookJson["contents"][count]["chapterID"],title=bookJson["contents"][count]["chapterName"]))
-                    count += 1
+                for file in Path(f"{book.id}").iterdir():
+                    if file.is_file() and file.stem.isdigit():
+                        book.chapters.append(
+                            models.Chapters(id=int(file.stem), 
+                                            title=bookJson.get("contents", {}).get(file.stem, file.stem))
+                            )
             except Exception as e:
                 models.Print.err(f"[ERR] {e}")
-        else:
+        else: # 非手动模式
             book.url = url
             book.id = int(urlparse(str(book.url)).path.split('/')[-1])
 
@@ -72,7 +79,7 @@ if __name__ == "__main__":
             models.Print.err(f"[ERR] 错误的输入：{url}，这一项会被忽略")
             continue
 
-        fileUtils.RemoveNewlinesInEachFile(Path(f"{book.id}"))
+        fileUtils.RemoveNewlinesInEachFile(Path(f"{book.id}")) # 处理加密文件
         
         if config.setting.manualBook.enable == False:
             if requestUtils.GetName(book) != 0: #这个方法作用到了book上
@@ -98,9 +105,10 @@ if __name__ == "__main__":
             except Exception as e:
                 models.Print.err(f"[ERR] 设置文件中，imageFolder为无效地址，错误为{e}")
         
-        config.CalculateParama(book)
+        config.CalculateParama(book) # 计算一些参数
         
-        if book.decryptedTxt.exists(): book.decryptedTxt.unlink(True) #避免重复写入，先删除
+        if book.decryptedTxt.exists(): 
+            book.decryptedTxt.unlink(True) #避免重复写入，先删除
         
         for chapter in tqdm(book.chapters,desc=models.Print.processingLabel(f"[PROCESSING] 解码中")):
             if chapter.isVolIntro == False:

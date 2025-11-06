@@ -21,7 +21,7 @@ cache:
   #可选的参数有 {bookID} {bookCover} {bookName} {bookAuthor} {bookDescription}
   textFolder: "decrypted\\{bookID}\\text"
   #生成图片的缓存
-  image: true
+  image: false
   #可选的参数有 {bookID} {bookCover} {bookName} {bookAuthor} {bookDescription}
   imageFolder: "decrypted\\{bookID}\\images"
 
@@ -38,25 +38,18 @@ multiThread:
 #手动目录的设置选项
 manualBook:
   enable: false
-  jsonString: '{"bookID": "100000005","bookName":"我的奋斗","authorName":"希尔","bookDescription": "这是我的奋斗的简介","coverPath":"./cover.jpg","contents":[{"chapterName":"第一章","chapterID":10000001},{"chapterName":"第二章","chapterID":10000002},{"chapterName":"终章","chapterID":10000003}]}'
-  #{
-  #  "bookID": 100000005,
-  #  "bookName": "我的奋斗",
-  #  "authorName": "希尔",
-  #  "bookDescription": "这是我的奋斗的简介"
-  #  "coverPath": "./cover.jpg"
-  #  "contents": [
-  #      {
-  #          "chapterName": "第一章",
-  #          "chapterID": 10000001
-  #      },
-  #      {
-  #          "chapterName": "第二章",
-  #          "chapterID": 10000002
-  #      },
-  #      {
-  #          "chapterName": "终章",
-  #          "chapterID": 10000003
-  #      }
-  #  ]
-  #}
+  #当这个选项打开时，程序会结合json文件和书籍加密文件夹，若某一章节在json中不存在而在书籍加密文件夹中存在时，程序也会将其输出，但是"xxx章未购买"的提示将会失效
+  autoExtend: true
+  jsonString: '{"bookID":"100000005","bookName":"我的奋斗","authorName":"希尔","bookDescription":"这是我的奋斗的简介","coverPath":"./cover.jpg","contents":{"1000001":"第一章","1000002":"第二章","1000003":"终章"}}'
+# {
+#     "bookID": "100000005",
+#     "bookName": "我的奋斗",
+#     "authorName": "希尔",
+#     "bookDescription": "这是我的奋斗的简介",
+#     "coverPath": "./cover.jpg",
+#     "contents": {
+#         "1000001": "第一章",
+#         "1000002": "第二章",
+#         "1000003": "终章"
+#     }
+# }
