@@ -87,20 +87,11 @@
     "authorName": "希尔",
     "bookDescription": "这是我的奋斗的简介",
     "coverPath": "./cover.jpg",
-    "contents": [
-        {
-            "chapterName": "第一章",
-            "chapterID": 10000001
-        },
-        {
-            "chapterName": "第二章",
-            "chapterID": 10000002
-        },
-        {
-            "chapterName": "终章",
-            "chapterID": 10000003
-        }
-    ]
+    "contents": {
+        "1000001": "第一章",
+        "1000002": "第二章",
+        "1000003": "终章"
+    }
 }
 ```
    具体如何处理你的，请你咨询ChatGPT等AI，注意不要擅自修改json文件中的键名
