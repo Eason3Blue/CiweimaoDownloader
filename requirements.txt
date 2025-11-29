@@ -1,5 +1,4 @@
 requests
-python-magic-bin
 colorama
 dataclasses; python_version < "3.7"
 urllib3
@@ -9,6 +8,7 @@ tqdm
 pycryptodome
 pydantic
 pyyaml
+filetype
 
 #build
 nuitka
