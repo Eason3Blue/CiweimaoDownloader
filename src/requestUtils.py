@@ -1,10 +1,6 @@
-from os import path
 import models
 import requests
-import config
 from bs4 import BeautifulSoup
-from pathlib import Path
-import tools
 
 def GetContents(book:models.Book): #方法，获得具体目录
     url = "https://www.ciweimao.com/chapter/get_chapter_list_in_chapter_detail"

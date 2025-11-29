@@ -39,14 +39,14 @@ def GetImagesInTxt(raw: str): #函数，将txt中的图片链接下载并包含�
                             f.write(response.content)
                     image_data = response.content
                     mime, ext = tools.CheckImageMIME(image_data)
-                    filename = f"{uuid.uuid4()}{ext}"
+                    filename = f"{uuid.uuid4()}.{ext}"
                     epub_path = Path("images") / filename
                 else:
                     with open(Path(f"{config.imageFolder}\\{parsed.path.split('/')[-1]}"), "rb") as f:
                         image_data = f.read()
                         
                     mime, ext = tools.CheckImageMIME(image_data)
-                    filename = f"{uuid.uuid4()}{ext}"
+                    filename = f"{uuid.uuid4()}.{ext}"
                     epub_path = Path("images") / filename
             else:
                 continue

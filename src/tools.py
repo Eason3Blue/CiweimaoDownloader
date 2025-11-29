@@ -1,5 +1,5 @@
 import re
-import magic
+import filetype
 import mimetypes
 import models
 from typing import Optional
@@ -8,8 +8,13 @@ def SanitizeName(name: str) -> str: #函数，标准化章节名，避免章节�
     return re.sub(r'[\\/:*?"<>|]', '', name)
 
 def CheckImageMIME(img: Optional[bytes]):
-    mime = magic.from_buffer(img, mime=True) #获取图片mime
-    ext = mimetypes.guess_extension(mime) #根据mime获取后缀
+    kind = filetype.guess(img)
+    
+    if kind != None:
+        mime = kind.mime #获取图片mime
+        ext = kind.extension #根据mime获取后缀
+    else:
+        raise Exception("图片识别Mime失败")
     if not ext:
         fallback = {
             "image/webp": ".webp",

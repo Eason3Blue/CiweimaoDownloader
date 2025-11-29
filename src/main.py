@@ -1,5 +1,3 @@
-from encodings.punycode import T
-from genericpath import isfile
 from urllib.parse import urlparse
 import models
 import requestUtils
