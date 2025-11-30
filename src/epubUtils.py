@@ -52,9 +52,9 @@ def parse_chapter(idx: int, chapter: models.Chapters):
         paragraphs = re.split(r'(?=　　)', text)
         html = ''.join(f"<p>{p.strip()}</p>" for p in paragraphs if p.strip())
 
-        return idx, html, chapter.isVolIntro, img_urls, None
+        return idx, chapter.title ,html, chapter.isVolIntro, img_urls, None
     except Exception as e:
-        return idx, None, None, [], e
+        return idx, None, None, None, [], e
 
 
 # ---------------------------------------
@@ -160,12 +160,12 @@ def GenerateEpub(book: models.Book,
         for fut in tqdm(as_completed(futures),
                         total=len(futures),
                         desc="[PROCESS] 解析章节..."):
-            idx, html, isVol, urls, err = fut.result()
+            idx, title, html, isVol, urls, err = fut.result()
             if err:
                 models.Print.err(f"[ERR] 解析章节 {idx+1} 失败: {err}")
                 continue
 
-            chapter_infos.append((idx, html, isVol))
+            chapter_infos.append((idx, title, html, isVol))
             all_urls.extend(urls)
 
     chapter_infos.sort(key=lambda x: x[0])
@@ -248,13 +248,13 @@ def GenerateEpub(book: models.Book,
     spine = ["nav"]
     epub_chapters = []
 
-    for idx, html, isVol in chapter_infos:
+    for idx, title ,html, isVol in chapter_infos:
         for url, rep in url_to_epubpath.items():
             if url in html:
                 html = html.replace(url, rep)
 
         chap = epub.EpubHtml(
-            title=f"章 {idx+1}",
+            title=title,
             file_name=f"chap_{idx+1}.xhtml",
             lang="zh"
         )
@@ -262,7 +262,7 @@ def GenerateEpub(book: models.Book,
 
         epub_book.add_item(chap)
         epub_chapters.append((idx, chap, isVol))
-        spine.append(chap)
+        spine.append(chap) # pyright: ignore[reportArgumentType]
 
     # ===============================
     # E. 目录 (TOC)
