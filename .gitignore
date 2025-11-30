@@ -206,7 +206,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-decrypt.py
+# decrypt.py
 .vscode/
 build-Nuitka.zip
 build-Pyinstaller.zip
