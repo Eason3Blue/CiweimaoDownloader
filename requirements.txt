@@ -9,6 +9,8 @@ pycryptodome
 pydantic
 pyyaml
 filetype
+aiohttp
+aiofiles
 
 #build
 nuitka
